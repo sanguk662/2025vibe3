@@ -38,10 +38,10 @@ data = {
 # ▶️ 데이터프레임 생성
 df = pd.DataFrame(data)
 
-# ▶️ 엑셀로 저장
-excel_path = "world_gdp_2010_2023_sample.xlsx"
-df.to_excel(excel_path, index=False)
-print(f"📁 엑셀 저장 완료: {excel_path}")
+# ▶️ CSV로 저장 (엑셀 오류 없이 가능)
+csv_path = "world_gdp_2010_2023_sample.csv"
+df.to_csv(csv_path, index=False)
+print(f"📁 CSV 저장 완료: {csv_path}")
 
 # ▶️ Plotly 시각화 ①: 명목 GDP 추이 (선 그래프)
 fig1 = px.line(df, x='Year', y='GDP_USD_trillions', color='Country',
