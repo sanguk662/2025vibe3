@@ -1,70 +1,59 @@
-import streamlit as st
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 
-st.title("서울특별시 연령별 인구 시각화 (2025년 6월 기준)")
-st.markdown("전체 인구와 남녀 성별 인구를 연령별로 시각화합니다.")
+# 데이터 정의 (엑셀 없이 바로 코드로 생성)
+data = {
+    "Country": [
+        "USA", "USA", "USA",
+        "China", "China",
+        "Japan", "Germany", "UK", "France", "India",
+        "Brazil", "Italy", "Canada", "South_Korea"
+    ],
+    "Year": [
+        2010, 2011, 2023,
+        2010, 2023,
+        2010, 2010, 2010, 2010, 2010,
+        2010, 2010, 2010, 2010
+    ],
+    "GDP_USD_trillions": [
+        14.96, 15.52, 27.94,
+        6.04, 17.50,
+        5.70, 3.41, 2.21, 2.58, 1.70,
+        2.20, 2.06, 1.60, 1.12
+    ],
+    "Population_millions": [
+        309, 311, 334,
+        1341, 1444,
+        128, 82, 62, 63, 1230,
+        195, 60, 34, 50
+    ],
+    "GDP_per_capita_USD": [
+        48430, 49890, 83600,
+        4500, 12120,
+        44530, 41610, 35650, 40950, 1380,
+        11280, 34350, 47100, 22400
+    ]
+}
 
-@st.cache_data
-def load_data():
-    df_all = pd.read_csv("202506_202506_연령별인구현황_월간.csv", encoding="cp949")
-    df_gender = pd.read_csv("202506_202506_연령별인구현황_월간지형이수학2등급.csv", encoding="cp949")
+df = pd.DataFrame(data)
 
-    df_all_seoul = df_all[df_all["행정구역"].str.contains("서울특별시  \(1100000000\)")]
-    df_gender_seoul = df_gender[df_gender["행정구역"].str.contains("서울특별시  \(1100000000\)")]
+# 🔹 1. 명목 GDP 변화 추이 (선 그래프)
+fig1 = px.line(df, x='Year', y='GDP_USD_trillions', color='Country',
+               title='🌍 국가별 명목 GDP 추이 (단위: 조 달러)', markers=True)
+fig1.update_layout(yaxis_title="GDP (US$ Trillion)", xaxis_title="연도")
+fig1.show()
 
-    df_all_seoul = df_all_seoul.drop(columns=["행정구역", "2025년06월_계_총인구수", "2025년06월_계_연령구간인구수"])
-    df_gender_seoul = df_gender_seoul.drop(columns=["행정구역", "2025년06월_남_총인구수", "2025년06월_남_연령구간인구수"])
+# 🔹 2. 2023년 기준 국가별 1인당 GDP (막대 그래프)
+df_2023 = df[df["Year"] == 2023]
+fig2 = px.bar(df_2023, x='Country', y='GDP_per_capita_USD',
+              title='💰 2023년 1인당 GDP 비교 (USD)', text='GDP_per_capita_USD')
+fig2.update_layout(yaxis_title="1인당 GDP (US$)", xaxis_title="국가")
+fig2.show()
 
-    df_all_seoul = df_all_seoul.applymap(lambda x: int(str(x).replace(",", "")))
-    df_gender_seoul = df_gender_seoul.applymap(lambda x: int(str(x).replace(",", "")))
-
-    df_all_seoul.columns = [col.split("_")[-1].replace("세", "").replace("이상", "100+") for col in df_all_seoul.columns]
-    df_all_seoul = df_all_seoul.T.reset_index()
-    df_all_seoul.columns = ["연령", "전체인구"]
-    df_all_seoul["연령"] = df_all_seoul["연령"].replace("100 100+", "100").astype(int)
-    df_all_seoul = df_all_seoul.sort_values("연령")
-
-    male_cols = [col for col in df_gender_seoul.columns if "_남_" in col]
-    female_cols = [col for col in df_gender_seoul.columns if "_여_" in col]
-
-    df_male = df_gender_seoul[male_cols].T.reset_index()
-    df_female = df_gender_seoul[female_cols].T.reset_index()
-
-    df_male.columns = ["연령", "남자"]
-    df_female.columns = ["연령", "여자"]
-
-    df_male["연령"] = df_male["연령"].apply(lambda x: x.split("_")[-1].replace("세", "").replace("이상", "100+"))
-    df_female["연령"] = df_female["연령"].apply(lambda x: x.split("_")[-1].replace("세", "").replace("이상", "100+"))
-
-    df_gender_combined = pd.merge(df_male, df_female, on="연령")
-    df_gender_combined["연령"] = df_gender_combined["연령"].replace("100 100+", "100").astype(int)
-    df_gender_combined = df_gender_combined.sort_values("연령")
-
-    return df_all_seoul, df_gender_combined
-
-df_all, df_gender = load_data()
-
-# 전체 인구 바 차트
-fig1 = px.bar(df_all, x="연령", y="전체인구",
-              title="서울특별시 연령별 전체 인구",
-              labels={"연령": "나이", "전체인구": "인구 수"},
-              height=500)
-fig1.update_layout(xaxis=dict(dtick=5))
-st.plotly_chart(fig1, use_container_width=True)
-
-# 남녀 인구 라인 차트
-fig2 = go.Figure()
-fig2.add_trace(go.Scatter(x=df_gender["연령"], y=df_gender["남자"], mode='lines+markers', name="남자"))
-fig2.add_trace(go.Scatter(x=df_gender["연령"], y=df_gender["여자"], mode='lines+markers', name="여자"))
-fig2.update_layout(title="서울특별시 연령별 남녀 인구 분포",
-                   xaxis_title="나이", yaxis_title="인구 수")
-st.plotly_chart(fig2, use_container_width=True)
-
-# 데이터 보기
-with st.expander("📊 전체 원본 데이터 보기"):
-    st.subheader("전체 인구 데이터")
-    st.dataframe(df_all)
-    st.subheader("남녀 인구 데이터")
-    st.dataframe(df_gender)
+# 🔹 3. 2023년 GDP vs 인구 (버블 차트)
+fig3 = px.scatter(df_2023, x="Population_millions", y="GDP_USD_trillions",
+                  size="GDP_per_capita_USD", color="Country",
+                  hover_name="Country", size_max=60,
+                  title="📊 GDP vs 인구 (버블 크기: 1인당 GDP)")
+fig3.update_layout(xaxis_title="인구 (백만)", yaxis_title="GDP (조 달러)")
+fig3.show()
