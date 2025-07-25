@@ -13,13 +13,13 @@ st.write("원하는 장소를 북마크로 지도에 추가해보세요!")
 if 'places' not in st.session_state:
     st.session_state['places'] = []
 
-# 폼을 통해 장소 입력
+# 장소 추가 폼
 with st.form("add_place_form"):
     st.subheader("➕ 장소 추가하기")
-    name = st.text_input("장소 이름", placeholder="예: 집, 학교, 맛집")
+    name = st.text_input("장소 이름", placeholder="예: 우리집, 학교, 카페")
     lat = st.number_input("위도", format="%.6f")
     lon = st.number_input("경도", format="%.6f")
-    description = st.text_area("설명", placeholder="장소에 대한 설명을 적어보세요.")
+    description = st.text_area("설명", placeholder="장소에 대한 설명")
 
     submitted = st.form_submit_button("장소 추가")
     if submitted:
@@ -30,17 +30,16 @@ with st.form("add_place_form"):
                 "lon": lon,
                 "description": description
             })
-            st.success(f"✅ '{name}' 장소가 지도에 추가되었습니다!")
+            st.success(f"✅ '{name}' 장소가 추가되었습니다!")
         else:
-            st.warning("장소 이름과 위도/경도는 반드시 입력해야 합니다.")
+            st.warning("장소 이름과 위도/경도를 입력해주세요.")
 
-# 지도 중심 위치 설정
+# 지도 중심 위치 계산
 if st.session_state.places:
     avg_lat = sum(p['lat'] for p in st.session_state.places) / len(st.session_state.places)
     avg_lon = sum(p['lon'] for p in st.session_state.places) / len(st.session_state.places)
 else:
-    # 기본 중심: 서울
-    avg_lat, avg_lon = 37.5665, 126.9780
+    avg_lat, avg_lon = 37.5665, 126.9780  # 서울 기본 위치
 
 # folium 지도 생성
 m = folium.Map(location=[avg_lat, avg_lon], zoom_start=12)
@@ -58,7 +57,7 @@ for p in st.session_state.places:
 st.subheader("🗺️ 내 북마크 지도")
 st_data = st_folium(m, width=1000, height=600)
 
-# 북마크 목록 출력
+# 북마크 목록 테이블 출력
 if st.session_state.places:
     st.subheader("📋 북마크 목록")
     df = pd.DataFrame(st.session_state.places)
