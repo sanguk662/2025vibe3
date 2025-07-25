@@ -1,94 +1,67 @@
 import streamlit as st
-import random
-import time
-import streamlit.components.v1 as components
+import folium
+from streamlit_folium import st_folium
+import pandas as pd
 
-# 페이지 기본 설정
-st.set_page_config(page_title="가위 바위 보 챌린지", page_icon="✊", layout="centered")
+st.set_page_config(page_title="나만의 북마크 지도", layout="wide")
 
-# 배경음악 삽입
-audio_url = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
-components.html(
-    f"""
-    <audio autoplay loop>
-        <source src="{audio_url}" type="audio/mp3">
-    </audio>
-    """,
-    height=0,
-)
+st.title("📍 나만의 북마크 지도 만들기")
+st.write("위도와 경도를 입력해서 북마크를 지도에 추가해보세요!")
 
-# 세션 상태 초기화
-if "user_score" not in st.session_state:
-    st.session_state.user_score = 0
-if "computer_score" not in st.session_state:
-    st.session_state.computer_score = 0
-if "round_result" not in st.session_state:
-    st.session_state.round_result = ""
+# 세션 상태에 장소 저장
+if 'places' not in st.session_state:
+    st.session_state['places'] = []
 
-# 선택 옵션
-choices = ["가위", "바위", "보"]
-emoji_map = {"가위": "✌", "바위": "✊", "보": "✋"}
+with st.form("add_place_form"):
+    st.subheader("➕ 장소 추가하기")
+    name = st.text_input("장소 이름", placeholder="예: 내 학교, 맛집")
+    lat = st.number_input("위도", format="%.6f")
+    lon = st.number_input("경도", format="%.6f")
+    description = st.text_area("설명", placeholder="장소에 대한 간단한 설명")
 
-# 목표 점수 설정
-st.sidebar.title("🎯 도전 모드 설정")
-goal_score = st.sidebar.slider("몇 점 먼저 도달하면 승리?", 1, 10, 5)
+    submitted = st.form_submit_button("장소 추가")
+    if submitted:
+        if name and lat and lon:
+            st.session_state.places.append({
+                "name": name,
+                "lat": lat,
+                "lon": lon,
+                "description": description
+            })
+            st.success(f"✅ '{name}' 장소가 추가되었습니다!")
+        else:
+            st.warning("장소 이름과 위치 정보(위도/경도)는 필수입니다.")
 
-# 타이틀 및 선택
-st.title("🔥 가위 바위 보 챌린지")
-st.markdown("가위✌ 바위✊ 보✋ 중 하나를 선택하세요!")
+# 지도 초기화
+if st.session_state.places:
+    avg_lat = sum(p['lat'] for p in st.session_state.places) / len(st.session_state.places)
+    avg_lon = sum(p['lon'] for p in st.session_state.places) / len(st.session_state.places)
+else:
+    # 기본 위치: 서울
+    avg_lat, avg_lon = 37.5665, 126.9780
 
-user_choice = st.radio("당신의 선택은?", choices, index=None, horizontal=True)
+m = folium.Map(location=[avg_lat, avg_lon], zoom_start=12)
 
-# 대결 버튼
-if user_choice and st.button("🎮 대결 시작!"):
-    with st.spinner("🤖 컴퓨터가 선택 중..."):
-        time.sleep(1.2)
-        computer_choice = random.choice(choices)
+# 북마크 추가
+for p in st.session_state.places:
+    folium.Marker(
+        [p["lat"], p["lon"]],
+        popup=f"<b>{p['name']}</b><br>{p['description']}",
+        tooltip=p["name"],
+        icon=folium.Icon(color="blue", icon="bookmark")
+    ).add_to(m)
 
-    # 결과 판단
-    st.write(f"🙋‍♂️ 당신: {emoji_map[user_choice]} **{user_choice}**")
-    st.write(f"🤖 컴퓨터: {emoji_map[computer_choice]} **{computer_choice}**")
+# 지도 출력
+st.subheader("🗺️ 내 북마크 지도")
+st_data = st_folium(m, width=1000, height=600)
 
-    if user_choice == computer_choice:
-        result = "😐 비겼습니다!"
-    elif (
-        (user_choice == "가위" and computer_choice == "보") or
-        (user_choice == "바위" and computer_choice == "가위") or
-        (user_choice == "보" and computer_choice == "바위")
-    ):
-        result = "🎉 당신이 이겼습니다!"
-        st.session_state.user_score += 1
-    else:
-        result = "💀 컴퓨터가 이겼습니다!"
-        st.session_state.computer_score += 1
+# 장소 목록 테이블
+if st.session_state.places:
+    st.subheader("📋 북마크 목록")
+    df = pd.DataFrame(st.session_state.places)
+    st.dataframe(df, use_container_width=True)
 
-    st.session_state.round_result = result
-
-# 결과 출력
-if st.session_state.round_result:
-    st.subheader(st.session_state.round_result)
-
-# 점수 출력
-st.markdown("---")
-st.markdown(f"""
-🏆 **스코어**  
-- 🙋‍♂️ 당신: `{st.session_state.user_score}` 점  
-- 🤖 컴퓨터: `{st.session_state.computer_score}` 점
-""")
-
-# 도전 모드 종료 조건
-if st.session_state.user_score >= goal_score:
-    st.balloons()
-    st.success(f"🎉 당신이 {goal_score}점에 도달하여 승리했습니다!")
-    if st.button("🔁 다시 시작"):
-        st.session_state.user_score = 0
-        st.session_state.computer_score = 0
-        st.session_state.round_result = ""
-
-elif st.session_state.computer_score >= goal_score:
-    st.error(f"💀 컴퓨터가 {goal_score}점에 먼저 도달했습니다. 당신은 패배했습니다!")
-    if st.button("🔁 다시 시작"):
-        st.session_state.user_score = 0
-        st.session_state.computer_score = 0
-        st.session_state.round_result = ""
-
+# 초기화 버튼
+if st.button("🗑️ 모든 북마크 삭제"):
+    st.session_state.places = []
+    st.success("모든 북마크가 삭제되었습니다.")
